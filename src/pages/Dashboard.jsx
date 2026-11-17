@@ -1,9 +1,9 @@
-import { useMemo } from 'react';
+import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Building2, Users, TrendingUp, TrendingDown, DollarSign, ArrowUpRight } from 'lucide-react';
 import { useAppData } from '../context/AppData';
 import { useLocalStorage } from '../hooks/useLocalStorage';
-import { txInMonth, amountForMonth, amountForPropertyMonth } from '../utils/transactions';
+import { txInMonth, amountForMonth, amountForPropertyMonth, txInYear, amountForYear, amountForPropertyYear } from '../utils/transactions';
 import { sortByStreetName } from '../utils/sort';
 import { usePropertyFilter } from '../context/PropertyFilter';
 
@@ -44,10 +44,15 @@ export default function Dashboard() {
   const propAmt = (tx, month) =>
     filterProperty ? amountForPropertyMonth(tx, filterProperty, month) : amountForMonth(tx, month);
 
+  const propAmtYear = (tx, year) =>
+    filterProperty ? amountForPropertyYear(tx, filterProperty, year) : amountForYear(tx, year);
+
   const inProp = (tx) =>
     !filterProperty ||
     tx.propertyId === filterProperty ||
     tx.splits?.some(sp => sp.propertyId === filterProperty);
+
+  const [statsView, setStatsView] = useState('month');
 
   const fmt = (n) => '$' + Math.abs(Number(n)).toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
   const fmtFull = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -60,9 +65,15 @@ export default function Dashboard() {
 
   const stats = useMemo(() => {
     const thisMonthTx = transactions.filter(tx => !tx.excluded && txInMonth(tx, currentMonth) && inProp(tx));
-    const income = thisMonthTx.filter(t => t.type === 'Income').reduce((s, t) => s + propAmt(t, currentMonth), 0);
-    const expenses = thisMonthTx.filter(t => t.type === 'Expense' && t.category !== 'Owner Draw').reduce((s, t) => s + propAmt(t, currentMonth), 0);
-    const ownerDraw = thisMonthTx.filter(t => t.type === 'Expense' && t.category === 'Owner Draw').reduce((s, t) => s + propAmt(t, currentMonth), 0);
+    const monthIncome = thisMonthTx.filter(t => t.type === 'Income').reduce((s, t) => s + propAmt(t, currentMonth), 0);
+    const monthExpenses = thisMonthTx.filter(t => t.type === 'Expense' && t.category !== 'Owner Draw').reduce((s, t) => s + propAmt(t, currentMonth), 0);
+    const monthOwnerDraw = thisMonthTx.filter(t => t.type === 'Expense' && t.category === 'Owner Draw').reduce((s, t) => s + propAmt(t, currentMonth), 0);
+
+    const thisYearTx = transactions.filter(tx => !tx.excluded && txInYear(tx, currentYear) && inProp(tx));
+    const ytdIncome = thisYearTx.filter(t => t.type === 'Income').reduce((s, t) => s + propAmtYear(t, currentYear), 0);
+    const ytdExpenses = thisYearTx.filter(t => t.type === 'Expense' && t.category !== 'Owner Draw').reduce((s, t) => s + propAmtYear(t, currentYear), 0);
+    const ytdOwnerDraw = thisYearTx.filter(t => t.type === 'Expense' && t.category === 'Owner Draw').reduce((s, t) => s + propAmtYear(t, currentYear), 0);
+
     const visibleProps = filterProperty ? properties.filter(p => p.id === filterProperty) : properties;
     const visibleTenants = filterProperty ? tenants.filter(t => t.propertyId === filterProperty) : tenants;
     const occupied = visibleProps.filter(p => p.status === 'Occupied').length;
@@ -84,8 +95,14 @@ export default function Dashboard() {
         const balance = Math.max(Number(t.annualAmount) - (taxPaid.get(key) || 0), 0);
         return s + balance;
       }, 0);
-    return { income, expenses, ownerDraw, netCashflow: income - expenses, occupied, activeTenants, unpaidTaxes, totalProps: visibleProps.length };
-  }, [transactions, properties, tenants, propertyTaxes, currentMonth, filterProperty]);
+    return {
+      month: { income: monthIncome, expenses: monthExpenses, ownerDraw: monthOwnerDraw, netCashflow: monthIncome - monthExpenses },
+      ytd:   { income: ytdIncome,   expenses: ytdExpenses,   ownerDraw: ytdOwnerDraw,   netCashflow: ytdIncome - ytdExpenses },
+      occupied, activeTenants, unpaidTaxes, totalProps: visibleProps.length,
+    };
+  }, [transactions, properties, tenants, propertyTaxes, currentMonth, currentYear, filterProperty]);
+
+  const s = stats[statsView];
 
   const monthlyData = useMemo(() => MONTHS.map((label, mi) => {
     const month = `${currentYear}-${String(mi + 1).padStart(2, '0')}`;
@@ -107,16 +124,22 @@ export default function Dashboard() {
 
   return (
     <div className="p-4 md:p-8">
-      <div className="mb-8">
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-slate-400 text-sm mt-1">Property Finance Overview — {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+      <div className="flex items-center justify-between mb-8">
+        <div>
+          <h1 className="text-2xl font-bold text-white">Dashboard</h1>
+          <p className="text-slate-400 text-sm mt-1">Property Finance Overview — {new Date().toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}</p>
+        </div>
+        <div className="flex gap-1 p-1 bg-navy-800 border border-navy-700 rounded-lg">
+          <button onClick={() => setStatsView('month')} className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${statsView === 'month' ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'}`}>Current Month</button>
+          <button onClick={() => setStatsView('ytd')}   className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors ${statsView === 'ytd'   ? 'bg-emerald-500 text-white' : 'text-slate-400 hover:text-white'}`}>Year to Date</button>
+        </div>
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-4">
-        <StatCard icon={TrendingUp} label="Monthly Income" value={fmtFull(stats.income)} sub="This month" color="emerald" />
-        <StatCard icon={TrendingDown} label="Monthly Expenses" value={fmtFull(stats.expenses)} sub="Excl. owner draw" color="red" />
-        <StatCard icon={DollarSign} label="Owner Draw" value={fmtFull(stats.ownerDraw)} sub="This month" color="purple" />
-        <StatCard icon={DollarSign} label="Net Cashflow" value={fmtFull(stats.netCashflow)} sub="This month" color={stats.netCashflow >= 0 ? 'emerald' : 'red'} />
+        <StatCard icon={TrendingUp} label="Income" value={fmtFull(s.income)} sub={statsView === 'month' ? 'This month' : 'Year to date'} color="emerald" />
+        <StatCard icon={TrendingDown} label="Expenses" value={fmtFull(s.expenses)} sub={statsView === 'month' ? 'This month, excl. owner draw' : 'Year to date, excl. owner draw'} color="red" />
+        <StatCard icon={DollarSign} label="Owner Draw" value={fmtFull(s.ownerDraw)} sub={statsView === 'month' ? 'This month' : 'Year to date'} color="purple" />
+        <StatCard icon={DollarSign} label="Net Cashflow" value={fmtFull(s.netCashflow)} sub={statsView === 'month' ? 'This month' : 'Year to date'} color={s.netCashflow >= 0 ? 'emerald' : 'red'} />
       </div>
       <div className="grid grid-cols-3 gap-4 mb-8">
         <StatCard icon={Building2} label="Properties" value={stats.totalProps} sub={`${stats.occupied} occupied`} color="blue" />
