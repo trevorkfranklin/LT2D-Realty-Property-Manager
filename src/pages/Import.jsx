@@ -1,4 +1,5 @@
 import { useState, useRef, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { Upload, Check, AlertCircle, RefreshCw, Landmark, Trash2 } from 'lucide-react';
 import { TRANSACTION_CATEGORIES } from '../data/sampleData';
 import { useAppData } from '../context/AppData';
@@ -58,6 +59,7 @@ const fmt = (n) => '$' + Number(n).toLocaleString('en-US', { minimumFractionDigi
 
 export default function Import() {
   const { transactions, bulkAddTransactions, updateTransaction, deleteTransaction, properties, settings, saveSetting, setTransactionsRaw } = useAppData();
+  const navigate = useNavigate();
   const [mode, setMode] = useState('bank');
 
   // ── CSV state ──────────────────────────────────────────────────────────────
@@ -131,7 +133,11 @@ export default function Import() {
     const fresh = all.filter(tx => !isDupe(tx, keys));
     setCsvSkipped(all.length - fresh.length);
     await bulkAddTransactions(fresh);
-    setStep('done');
+    if (fresh.length > 0) {
+      navigate('/transactions', { state: { newIds: fresh.map(t => t.id) } });
+    } else {
+      setStep('done');
+    }
   };
   const resetCsv = () => { setStep('upload'); setRows([]); setHeaders([]); setPreview([]); setCsvError(''); setCsvSkipped(0); if (fileRef.current) fileRef.current.value = ''; };
   const csvSteps = ['upload', 'map', 'preview', 'done'];
@@ -526,7 +532,13 @@ export default function Import() {
                         return !dateAmtKeys.has(`${tx.date}|${Number(tx.amount)}`);
                       })
                       .map(({ _dupe, _accountId, ...tx }) => tx);
-                    bulkAddTransactions(fresh).then(() => setSfStep('done'));
+                    bulkAddTransactions(fresh).then(() => {
+                      if (fresh.length > 0) {
+                        navigate('/transactions', { state: { newIds: fresh.map(t => t.id) } });
+                      } else {
+                        setSfStep('done');
+                      }
+                    });
                   }}
                   disabled={sfFresh.length === 0}
                   className="px-4 py-2 bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white rounded-lg text-sm font-medium"

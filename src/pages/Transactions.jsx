@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react';
+import { useLocation } from 'react-router-dom';
 import { Plus, Pencil, Trash2, X, Check, Ban, Split, Download, Sparkles } from 'lucide-react';
 import { useAppData } from '../context/AppData';
 import { TRANSACTION_CATEGORIES } from '../data/sampleData';
@@ -346,6 +347,8 @@ export default function Transactions() {
   const [filterCategory, setFilterCategory] = useState('');
   const [filterAccount, setFilterAccount] = useState('');
   const [showExcluded, setShowExcluded] = useState(false);
+  const location = useLocation();
+  const [newIds, setNewIds] = useState(() => location.state?.newIds ? new Set(location.state.newIds) : null);
 
   const sfAccounts = useMemo(() => {
     const names = new Set();
@@ -365,7 +368,7 @@ export default function Transactions() {
   };
 
   const filtered = useMemo(() =>
-    [...transactions]
+    (newIds ? transactions.filter(tx => newIds.has(tx.id)) : [...transactions])
       .filter(tx => filterType === 'All' || tx.type === filterType)
       .filter(tx => !filterProperty ||
         tx.propertyId === filterProperty ||
@@ -377,7 +380,7 @@ export default function Transactions() {
       .filter(tx => filterCategorized === 'all' || (filterCategorized === 'uncategorized') === isUncategorized(tx))
       .filter(tx => showExcluded || !tx.excluded)
       .sort((a, b) => new Date(b.date) - new Date(a.date)),
-    [transactions, filterType, filterProperty, filterMonth, filterDesc, filterCategory, filterAccount, filterCategorized, showExcluded]
+    [transactions, newIds, filterType, filterProperty, filterMonth, filterDesc, filterCategory, filterAccount, filterCategorized, showExcluded]
   );
 
   // Prorated amount for a specific property filter; 0 if split doesn't include it
@@ -551,6 +554,12 @@ export default function Transactions() {
           {canEdit && <button onClick={openAdd} className="flex items-center gap-2 bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg text-sm font-medium"><Plus size={16} /> Add Transaction</button>}
         </div>
       </div>
+      {newIds && (
+        <div className="flex items-center justify-between mb-4 p-3 bg-emerald-500/10 border border-emerald-500/30 rounded-lg text-emerald-400 text-sm">
+          <span>Showing {newIds.size} new transaction{newIds.size !== 1 ? 's' : ''} from your last import.</span>
+          <button onClick={() => setNewIds(null)} className="text-xs underline hover:text-white">Show all</button>
+        </div>
+      )}
       <div className="flex flex-wrap gap-4 mb-5">
         <label className="flex flex-col gap-1">
           <span className="text-xs text-slate-500">Description</span>
