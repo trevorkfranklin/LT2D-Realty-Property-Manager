@@ -506,10 +506,10 @@ export default function Import() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-navy-700">
-                    {sfPreview.slice(0, 50).map((tx, i) => (
-                      <tr key={i} className={tx._dupe ? 'opacity-35' : ''}>
+                    {sfFresh.slice(0, 50).map((tx, i) => (
+                      <tr key={i}>
                         <td className="px-4 py-2 text-slate-300">{tx.date}</td>
-                        <td className="px-4 py-2 text-white">{tx.description}{tx._dupe && <span className="ml-2 text-xs text-slate-500 italic">duplicate</span>}</td>
+                        <td className="px-4 py-2 text-white">{tx.description}</td>
                         <td className={`px-4 py-2 ${tx.type === 'Income' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type}</td>
                         <td className="px-4 py-2 text-right text-white">{fmt(tx.amount)}</td>
                       </tr>
@@ -517,8 +517,8 @@ export default function Import() {
                   </tbody>
                 </table>
               </div>
-              {sfPreview.length > 50 && (
-                <p className="text-xs text-slate-500">Showing first 50 of {sfPreview.length}.</p>
+              {sfFresh.length > 50 && (
+                <p className="text-xs text-slate-500">Showing first 50 of {sfFresh.length}.</p>
               )}
               <div className="flex justify-between">
                 <button onClick={() => setSfStep('sync')} className="text-slate-400 hover:text-white text-sm">← Back</button>
@@ -661,17 +661,14 @@ export default function Import() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-navy-700">
-                    {preview.map((tx, i) => {
-                      const dupe = isDupe(tx, keys);
-                      return (
-                        <tr key={i} className={dupe ? 'opacity-35' : ''}>
-                          <td className="px-4 py-2 text-slate-300">{tx.date}</td>
-                          <td className="px-4 py-2 text-white">{tx.description}{dupe && <span className="ml-2 text-xs text-slate-500 italic">duplicate</span>}</td>
-                          <td className={`px-4 py-2 ${tx.type === 'Income' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type}</td>
-                          <td className="px-4 py-2 text-right text-white">{fmt(tx.amount)}</td>
-                        </tr>
-                      );
-                    })}
+                    {preview.filter(tx => !isDupe(tx, keys)).map((tx, i) => (
+                      <tr key={i}>
+                        <td className="px-4 py-2 text-slate-300">{tx.date}</td>
+                        <td className="px-4 py-2 text-white">{tx.description}</td>
+                        <td className={`px-4 py-2 ${tx.type === 'Income' ? 'text-emerald-400' : 'text-red-400'}`}>{tx.type}</td>
+                        <td className="px-4 py-2 text-right text-white">{fmt(tx.amount)}</td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
               </div>
